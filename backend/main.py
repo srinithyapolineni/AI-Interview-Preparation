@@ -8,6 +8,8 @@ FastAPI Backend with all endpoints:
   - /leaderboard
   - /reset/:username
   - /health
+  - /register
+  - /login
 
 Run: uvicorn main:app --reload --port 8000
 Set:  export OPENAI_API_KEY=your_key_here
@@ -19,7 +21,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
-import sqlite3, json, os, random
+import sqlite3, json, os, random, hashlib
 from datetime import datetime
 
 # ── OpenAI (optional) ─────────────────────────────────────────────────────────
@@ -82,7 +84,21 @@ def init_db():
     """)
     conn.commit(); conn.close()
 
+def init_users_db():
+    conn = get_db()
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id       INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT    UNIQUE NOT NULL,
+            email    TEXT    UNIQUE NOT NULL,
+            password TEXT    NOT NULL,
+            created  TEXT    NOT NULL
+        )
+    """)
+    conn.commit(); conn.close()
+
 init_db()
+init_users_db()
 
 # ── Question Bank ─────────────────────────────────────────────────────────────
 QUESTION_BANK = {
@@ -355,7 +371,19 @@ class ResumeRequest(BaseModel):
     difficulty:    str
     num_questions: int = 5
 
+class RegisterRequest(BaseModel):
+    username: str
+    email:    str
+    password: str
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
+def hash_password(password: str) -> str:
+    return hashlib.sha256(password.encode()).hexdigest()
+
 def score_to_grade(score: float) -> str:
     if score >= 9:   return "A"
     if score >= 7.5: return "B"
@@ -381,7 +409,6 @@ def rule_based_evaluate(question: str, answer: str, role: str) -> dict:
     score = 5.0
     strengths, improvements = [], []
 
-    # Length
     if wc >= 80:
         score += 1.5; strengths.append("Detailed and comprehensive — good answer length.")
     elif wc >= 40:
@@ -389,7 +416,6 @@ def rule_based_evaluate(question: str, answer: str, role: str) -> dict:
     else:
         score -= 1.0; improvements.append("Too short — aim for at least 50 words.")
 
-    # Keywords
     if kh >= 5:
         score += 1.5; strengths.append("Excellent use of relevant technical vocabulary.")
     elif kh >= 2:
@@ -397,7 +423,6 @@ def rule_based_evaluate(question: str, answer: str, role: str) -> dict:
     else:
         improvements.append("Include more technical terms relevant to the question.")
 
-    # STAR for HR
     q_lower = question.lower()
     is_hr   = any(w in q_lower for w in ["time you","describe","tell me","experience","situation","when you"])
     if is_hr:
@@ -408,13 +433,11 @@ def rule_based_evaluate(question: str, answer: str, role: str) -> dict:
         else:
             improvements.append("Use the STAR method: Situation → Task → Action → Result.")
 
-    # Examples
     if any(p in answer.lower() for p in ["example","for instance","such as","like when","in my","at my","once i","i was working"]):
         score += 0.5; strengths.append("Good use of a specific real example.")
     else:
         improvements.append("Add a concrete personal example to strengthen your answer.")
 
-    # Numbers / quantification
     if any(c.isdigit() for c in answer):
         score += 0.5; strengths.append("Quantified impact with numbers — impressive.")
 
@@ -488,7 +511,6 @@ Evaluate and respond ONLY with a valid JSON object (no markdown, no explanation)
         return result
 
 def generate_followup(question: str, answer: str, role: str) -> Optional[str]:
-    # Rule-based fallbacks
     q = question.lower()
     rule_followups = {
         lambda q: "time you" in q or "tell me" in q:            "What would you do differently if you faced the same situation today?",
@@ -592,7 +614,6 @@ def generate_question(req: QuestionRequest):
         for q in diff_map.get(req.difficulty, []):
             candidates.append({**q, "topic": topic_name, "source": "bank"})
 
-    # 40% chance of AI-generated question
     if (random.random() < 0.4) or not candidates:
         ai_q = ai_generate_question(req.role, req.difficulty, req.topic)
         if ai_q:
@@ -611,7 +632,6 @@ def evaluate_answer(req: EvaluateRequest):
     followup = generate_followup(req.question, req.answer, req.role)
     result["followup_question"] = followup
 
-    # Persist to DB
     try:
         conn = get_db()
         conn.execute("""
@@ -704,3 +724,36 @@ def health():
         "nltk":         NLTK_OK,
         "db":           os.path.exists(DB_PATH),
     }
+
+# ── Auth Routes ───────────────────────────────────────────────────────────────
+@app.post("/register")
+def register(req: RegisterRequest):
+    if len(req.username.strip()) < 3:
+        raise HTTPException(400, "Username must be at least 3 characters.")
+    if len(req.password) < 6:
+        raise HTTPException(400, "Password must be at least 6 characters.")
+    if "@" not in req.email:
+        raise HTTPException(400, "Invalid email address.")
+    try:
+        conn = get_db()
+        conn.execute(
+            "INSERT INTO users (username, email, password, created) VALUES (?,?,?,?)",
+            (req.username.strip(), req.email.strip().lower(),
+             hash_password(req.password), datetime.now().strftime("%Y-%m-%d %H:%M"))
+        )
+        conn.commit(); conn.close()
+        return {"message": "Account created successfully!"}
+    except sqlite3.IntegrityError:
+        raise HTTPException(400, "Username or email already exists.")
+
+@app.post("/login")
+def login(req: LoginRequest):
+    conn = get_db()
+    user = conn.execute(
+        "SELECT * FROM users WHERE username=? AND password=?",
+        (req.username.strip(), hash_password(req.password))
+    ).fetchone()
+    conn.close()
+    if not user:
+        raise HTTPException(401, "Invalid username or password.")
+    return {"message": "Login successful!", "username": user["username"], "email": user["email"]}

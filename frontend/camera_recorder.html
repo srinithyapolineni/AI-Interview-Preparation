@@ -99,13 +99,6 @@ body{background:transparent;font-family:'DM Sans',sans-serif;}
 </div>
 
 <script>
-// ── FIX: Grant permissions to the iframe from inside it ─────────────────────
-// Streamlit renders components.html() inside an iframe without allow="camera"
-// We patch this by requesting permissions immediately on page load.
-// Modern browsers respect getUserMedia inside iframes IF the top-level page
-// has granted the permission AND the iframe src is same-origin (localhost).
-// Since both Streamlit and this component are on localhost, this works.
-
 var stream=null,recorder=null,chunks=[],recording=false,timerInt=null,recSecs=0,recordings=[];
 
 function showErr(msg){
@@ -121,7 +114,6 @@ function startCamera(){
   btn.disabled=true;btn.innerHTML='⏳ Starting…';
   showSpinner(true);
 
-  // Check if mediaDevices is available
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
     showSpinner(false);
     btn.disabled=false;btn.innerHTML='📷 Start Camera';
@@ -272,27 +264,19 @@ function fmt(s){return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
 function fmtSize(b){return b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB';}
 function showSpinner(show){document.getElementById('spinner').style.display=show?'flex':'none';}
 
-// ── KEY FIX: Patch the parent iframe's allow attribute ──────────────────────
-// When Streamlit renders components.html(), the iframe lacks allow="camera;microphone"
-// We fix it by walking up to the parent document and patching the iframe element.
 (function patchIframePermissions(){
   try{
-    // Try to find our own iframe in the parent and add allow attribute
     if(window.parent&&window.parent!==window){
       var frames=window.parent.document.querySelectorAll('iframe');
       frames.forEach(function(f){
         try{
           if(f.contentWindow===window){
             f.allow='camera; microphone; display-capture';
-            console.log('[CameraFix] Patched iframe allow attribute');
           }
         }catch(e){}
       });
     }
-  }catch(e){
-    // Cross-origin restriction — fallback handled by Permissions-Policy meta tag above
-    console.log('[CameraFix] Parent patch blocked (cross-origin), relying on meta policy');
-  }
+  }catch(e){}
 })();
 </script>
 </body>

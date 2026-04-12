@@ -1,6 +1,7 @@
 """
-app.py  -  AI Interview Preparation Platform (FULLY UPGRADED + CAMERA FIXED)
+app.py  -  AI Interview Preparation Platform (FULLY UPGRADED + CAMERA FIXED + LOGIN)
 Streamlit Frontend with:
+  - Login / Signup system
   - FIXED Camera: Uses an external HTML file served via st.components with allow permissions
   - Camera ON/OFF + Start/Stop Recording + Download Video
   - Timer-based mock interview (30s / 60s / 90s)
@@ -138,14 +139,20 @@ html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
     background: #0a1a0a; border: 1px solid #14532d; border-radius: 10px;
     padding: 10px 14px; color: #4ade80; font-size: 13px; margin-bottom: 8px;
 }
+
+/* Login page */
+.login-wrap {
+    max-width: 460px; margin: 40px auto;
+    background: #0d1520; border: 1px solid #1a2535;
+    border-radius: 18px; padding: 40px 36px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+}
+.login-title { color: #fff; font-size: 28px; font-weight: 700; text-align: center; margin-bottom: 4px; }
+.login-sub   { color: #3d5068; font-size: 13px; text-align: center; margin-bottom: 24px; }
 </style>
 """, unsafe_allow_html=True)
 
 # ── CAMERA FIX: Write standalone HTML file served directly ───────────────────
-# The ROOT cause: Streamlit iframes don't pass allow="camera;microphone"
-# FIX: Inject the permission attribute via JS after render, and use srcdoc with
-#      proper feature policy headers embedded in the HTML itself.
-
 CAMERA_RECORDER_HTML = """<!DOCTYPE html>
 <html>
 <head>
@@ -247,13 +254,6 @@ body{background:transparent;font-family:'DM Sans',sans-serif;}
 </div>
 
 <script>
-// ── FIX: Grant permissions to the iframe from inside it ─────────────────────
-// Streamlit renders components.html() inside an iframe without allow="camera"
-// We patch this by requesting permissions immediately on page load.
-// Modern browsers respect getUserMedia inside iframes IF the top-level page
-// has granted the permission AND the iframe src is same-origin (localhost).
-// Since both Streamlit and this component are on localhost, this works.
-
 var stream=null,recorder=null,chunks=[],recording=false,timerInt=null,recSecs=0,recordings=[];
 
 function showErr(msg){
@@ -269,7 +269,6 @@ function startCamera(){
   btn.disabled=true;btn.innerHTML='⏳ Starting…';
   showSpinner(true);
 
-  // Check if mediaDevices is available
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
     showSpinner(false);
     btn.disabled=false;btn.innerHTML='📷 Start Camera';
@@ -420,44 +419,30 @@ function fmt(s){return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
 function fmtSize(b){return b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB';}
 function showSpinner(show){document.getElementById('spinner').style.display=show?'flex':'none';}
 
-// ── KEY FIX: Patch the parent iframe's allow attribute ──────────────────────
-// When Streamlit renders components.html(), the iframe lacks allow="camera;microphone"
-// We fix it by walking up to the parent document and patching the iframe element.
 (function patchIframePermissions(){
   try{
-    // Try to find our own iframe in the parent and add allow attribute
     if(window.parent&&window.parent!==window){
       var frames=window.parent.document.querySelectorAll('iframe');
       frames.forEach(function(f){
         try{
           if(f.contentWindow===window){
             f.allow='camera; microphone; display-capture';
-            console.log('[CameraFix] Patched iframe allow attribute');
           }
         }catch(e){}
       });
     }
-  }catch(e){
-    // Cross-origin restriction — fallback handled by Permissions-Policy meta tag above
-    console.log('[CameraFix] Parent patch blocked (cross-origin), relying on meta policy');
-  }
+  }catch(e){}
 })();
 </script>
 </body>
 </html>"""
 
-# ── Write camera HTML to a temp file Streamlit can serve ─────────────────────
 _CAM_HTML_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "camera_recorder.html")
 with open(_CAM_HTML_PATH, "w", encoding="utf-8") as f:
     f.write(CAMERA_RECORDER_HTML)
 
 
 def render_camera():
-    """
-    FIXED camera renderer.
-    Approach 1: components.html() with JS patch (works most of the time on localhost).
-    Approach 2: Falls back to st.camera_input if JS patch fails.
-    """
     components.html(CAMERA_RECORDER_HTML, height=430, scrolling=False)
 
 
@@ -645,6 +630,8 @@ defaults = {
     "current_question": None,
     "evaluation":       None,
     "username":         "guest",
+    "logged_in":        False,
+    "user_email":       "",
     "interview_count":  0,
     "page":             "🎤 Interview",
     "resume_questions": [],
@@ -659,6 +646,57 @@ for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
+# ══════════════════════════════════════════════════════════════════════════════
+# LOGIN / SIGNUP GATE — shown before anything else if not logged in
+# ══════════════════════════════════════════════════════════════════════════════
+if not st.session_state.logged_in:
+    st.markdown("""
+    <div class="login-wrap">
+        <div class="login-title">🎯 InterviewAI Pro</div>
+        <div class="login-sub">Your AI-Powered Interview Coach</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    tab_login, tab_signup = st.tabs(["🔐 Login", "📝 Create Account"])
+
+    with tab_login:
+        st.markdown("### Welcome back!")
+        lu = st.text_input("Username", placeholder="Enter your username", key="login_u")
+        lp = st.text_input("Password", type="password", placeholder="Enter your password", key="login_p")
+        if st.button("🚀 Login", use_container_width=True, type="primary", key="login_btn"):
+            if lu.strip() and lp:
+                res = api_post("/login", {"username": lu.strip(), "password": lp})
+                if res:
+                    st.session_state.logged_in  = True
+                    st.session_state.username   = res["username"]
+                    st.session_state.user_email = res.get("email", "")
+                    st.success(f"✅ Welcome back, {res['username']}!")
+                    st.rerun()
+            else:
+                st.warning("Please enter both username and password.")
+
+    with tab_signup:
+        st.markdown("### Create your free account")
+        ru  = st.text_input("Username (min 3 chars)",  placeholder="Choose a username",       key="reg_u")
+        re_ = st.text_input("Email",                   placeholder="your@email.com",          key="reg_e")
+        rp  = st.text_input("Password (min 6 chars)",  type="password",
+                             placeholder="Choose a strong password",                           key="reg_p")
+        rp2 = st.text_input("Confirm Password",        type="password",
+                             placeholder="Repeat your password",                               key="reg_p2")
+        if st.button("✨ Create Account", use_container_width=True, type="primary", key="reg_btn"):
+            if not (ru.strip() and re_.strip() and rp and rp2):
+                st.warning("Please fill in all fields.")
+            elif rp != rp2:
+                st.error("❌ Passwords do not match.")
+            elif len(rp) < 6:
+                st.error("❌ Password must be at least 6 characters.")
+            else:
+                res = api_post("/register", {"username": ru.strip(), "email": re_.strip(), "password": rp})
+                if res:
+                    st.success("✅ Account created! Please log in.")
+
+    st.stop()  # Stop the rest of the app from rendering until logged in
+
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown(
@@ -667,9 +705,15 @@ with st.sidebar:
         unsafe_allow_html=True)
     st.markdown("---")
 
-    username = st.text_input("👤 Your Name", value=st.session_state.username)
-    if username:
-        st.session_state.username = username.strip() or "guest"
+    # Show logged-in user info
+    st.markdown(f"👤 **{st.session_state.username}**")
+    if st.button("🚪 Logout", use_container_width=True):
+        for key in ["logged_in","username","user_email","current_question",
+                    "evaluation","interview_count","resume_questions",
+                    "code_result","coding_q","code_evaluation"]:
+            if key in st.session_state:
+                del st.session_state[key]
+        st.rerun()
 
     st.markdown("---")
 
@@ -771,7 +815,6 @@ if st.session_state.page == "🎤 Interview":
             if st.checkbox("Show STAR method guide", key="star_interview"):
                 render_star()
 
-        # ── CAMERA (FIXED) ────────────────────────────────────────────────────
         st.markdown("**🎥 Camera & Recording**")
         st.markdown(
             '<div class="cam-notice">💡 <b>Camera tip:</b> If camera doesn\'t start, '
@@ -1312,6 +1355,7 @@ elif st.session_state.page == "ℹ️ About":
 - 🧪 **Coding Challenge** — write & run Python + AI review
 - 📊 **Performance Dashboard** — trends & analytics
 - 🏆 **Leaderboard** — compete globally
+- 🔐 **Login / Signup** — secure user accounts
 """)
 
     st.markdown("---")
@@ -1337,10 +1381,5 @@ ai-interview-platform/
 3. Set **Microphone** → Allow
 4. Click **Refresh** (F5)
 5. Click **Start Camera** again
-
-**Still not working?**
-- Make sure no other app (Zoom, Teams) is using the camera
-- Try Chrome Incognito: Ctrl+Shift+N
-- Check: `chrome://settings/content/camera`
 """)
     st.markdown("**Built as a final-year project · Python · FastAPI · Streamlit · OpenAI · SQLite**")
