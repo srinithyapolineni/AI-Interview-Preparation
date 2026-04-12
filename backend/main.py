@@ -13,7 +13,8 @@ Run: uvicorn main:app --reload --port 8000
 Set:  export OPENAI_API_KEY=your_key_here
 """
 from dotenv import load_dotenv
-load_dotenv()
+import os
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
