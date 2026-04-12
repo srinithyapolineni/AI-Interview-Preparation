@@ -1,27 +1,66 @@
 # 🤖 AI Interview Preparation Platform
 
-An AI-powered platform to help users prepare for job interviews using voice recognition and AI evaluation.
+An AI-powered platform that helps users practice and improve their interview skills using voice input, intelligent question generation, and real-time feedback.
 
-## ✨ Features
-- 🎤 Voice Interview mode
-- 🤖 AI-powered answer evaluation
-- 📊 Performance tracking
-- 💾 SQLite database storage
-- 📝 Multiple interview categories
+---
 
-## 🛠️ Technologies Used
-- Python
-- Streamlit
-- Speech Recognition
-- SQLite
-- NLP
+## 🚀 Features
 
-## 🚀 How to Run
-1. Clone the repository
-2. Install dependencies:
-   pip install -r requirements.txt
-3. Run the app:
-   streamlit run frontend/app.py
+* 🎤 Voice-based interview practice
+* 🤖 AI-generated interview questions
+* 📊 Real-time answer evaluation
+* 🧠 Smart feedback using NLP
+* 📈 Performance tracking dashboard
+
+---
+
+## 🛠️ Tech Stack
+
+* Python
+* Streamlit
+* Natural Language Processing (NLP)
+* Speech Recognition
+* SQLite
+* HTML & CSS
+
+---
+
+## ⚙️ How to Run
+
+```bash
+git clone https://github.com/srinithyapolineni/AI-Interview-Preparation.git
+cd AI-Interview-Preparation
+pip install -r requirements.txt
+streamlit run main.py
+```
+
+---
+
+## 📂 Project Structure
+
+* backend/ – AI logic and database
+* frontend/ – UI components
+* generation/ – question generation modules
+
+---
+
+## 🌟 Future Improvements
+
+* Add more interview categories
+* Improve AI feedback accuracy
+* Add user login system
+* Deploy on cloud
+
+---
 
 ## 👩‍💻 Author
-- GitHub: [@srinithyapolineni](https://github.com/srinithyapolineni)
+
+Srinithya Polneni
+
+---
+
+## ⭐ Support
+
+If you like this project, give it a ⭐ on GitHub!
+
+
