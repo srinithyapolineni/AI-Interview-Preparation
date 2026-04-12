@@ -1,0 +1,13 @@
+# Environment variables (API keys - NEVER share these)
+.env
+
+# Python
+__pycache__/
+venv/
+*.pyc
+
+# Node
+node_modules/
+
+# OS files
+.DS_Store

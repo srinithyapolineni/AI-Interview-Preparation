@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Feature-Policy" content="camera *; microphone *">
+<meta http-equiv="Permissions-Policy" content="camera=*, microphone=*">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:transparent;font-family:'DM Sans',sans-serif;}
+
+@keyframes blink  {0%,100%{opacity:1}50%{opacity:0}}
+@keyframes spin   {to{transform:rotate(360deg)}}
+@keyframes fadeIn {from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+
+.container{background:#0d1520;border:1px solid #1a2535;border-radius:14px;padding:18px;animation:fadeIn 0.3s ease;}
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.header-title{color:#60a5fa;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;display:flex;align-items:center;gap:8px;}
+.rec-badge{display:none;align-items:center;gap:6px;background:#1a0808;border:1px solid #7f1d1d;border-radius:8px;padding:4px 10px;font-size:12px;font-weight:600;color:#f87171;}
+.rec-dot{width:8px;height:8px;border-radius:50%;background:#ef4444;animation:blink 1s infinite;}
+.body{display:flex;gap:14px;align-items:flex-start;}
+.video-wrap{position:relative;width:220px;height:165px;flex-shrink:0;border-radius:10px;overflow:hidden;background:#060a10;border:1px solid #1a2535;}
+#preview{width:100%;height:100%;object-fit:cover;display:block;border-radius:10px;}
+.cam-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#060a10;color:#1e3a5f;font-size:12px;gap:8px;border-radius:10px;}
+.cam-icon{font-size:36px;opacity:.4;}
+.spinner{display:none;position:absolute;inset:0;align-items:center;justify-content:center;background:rgba(6,10,16,.7);}
+.spin-ring{width:32px;height:32px;border:3px solid #1a2535;border-top-color:#3b82f6;border-radius:50%;animation:spin .8s linear infinite;}
+.duration-overlay{display:none;position:absolute;bottom:8px;left:8px;background:rgba(0,0,0,.65);border-radius:6px;padding:3px 8px;font-size:12px;font-weight:600;color:#f87171;letter-spacing:.03em;}
+.controls{display:flex;flex-direction:column;gap:8px;flex:1;}
+.btn{width:100%;padding:9px 14px;border:none;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s ease;display:flex;align-items:center;justify-content:center;gap:7px;}
+.btn:hover:not(:disabled){filter:brightness(1.12);transform:translateY(-1px);}
+.btn:active:not(:disabled){transform:scale(.97);}
+.btn:disabled{opacity:.35;cursor:not-allowed;transform:none!important;filter:none!important;}
+.btn-cam{background:#1d4ed8;color:#eff6ff;}
+.btn-stop-cam{background:#065f46;color:#d1fae5;display:none;}
+.btn-record{background:#b91c1c;color:#fee2e2;}
+.btn-stop-rec{background:#374151;color:#d1d5db;display:none;}
+.btn-download{background:#6d28d9;color:#ede9fe;}
+.btn-clear{background:#1a2535;color:#94a3b8;}
+.divider{border:none;border-top:1px solid #1a2535;margin:6px 0;}
+.recordings-section{margin-top:12px;}
+.recordings-title{font-size:12px;font-weight:600;color:#4a6080;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;}
+.recording-item{display:flex;align-items:center;gap:10px;background:#060a10;border:1px solid #1a2535;border-radius:8px;padding:9px 12px;margin-bottom:6px;animation:fadeIn .25s ease;}
+.recording-thumb{width:44px;height:33px;object-fit:cover;border-radius:5px;background:#1a2535;flex-shrink:0;}
+.recording-info{flex:1;}
+.recording-name{font-size:12px;font-weight:600;color:#e2e8f0;}
+.recording-dur{font-size:11px;color:#4a6080;margin-top:1px;}
+.recording-btn{padding:5px 10px;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
+.recording-btn:hover{filter:brightness(1.15);}
+.dl-btn{background:#4c1d95;color:#ede9fe;}
+.del-btn{background:#1a0808;color:#f87171;margin-left:4px;}
+.tip{font-size:12px;color:#2a3f55;margin-top:10px;line-height:1.5;}
+.err-msg{background:#1a0808;border:1px solid #7f1d1d;border-radius:8px;padding:10px 14px;color:#f87171;font-size:12px;margin-top:8px;display:none;line-height:1.6;}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="header-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15 10l4.55-2.84A1 1 0 0 1 21 8v8a1 1 0 0 1-1.45.89L15 14"/><rect x="1" y="6" width="14" height="12" rx="2"/>
+      </svg>
+      Video Recorder
+    </div>
+    <div class="rec-badge" id="recBadge">
+      <div class="rec-dot"></div>
+      REC <span id="recTime">0:00</span>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="video-wrap">
+      <video id="preview" autoplay muted playsinline></video>
+      <div class="cam-placeholder" id="camPh">
+        <div class="cam-icon">📷</div>
+        <span>Camera off</span>
+      </div>
+      <div class="spinner" id="spinner"><div class="spin-ring"></div></div>
+      <div class="duration-overlay" id="durOverlay">0:00</div>
+    </div>
+
+    <div class="controls">
+      <button class="btn btn-cam"      id="startCamBtn"  onclick="startCamera()">📷 Start Camera</button>
+      <button class="btn btn-stop-cam" id="stopCamBtn"   onclick="stopCamera()">⏏ Stop Camera</button>
+      <hr class="divider">
+      <button class="btn btn-record"   id="startRecBtn"  onclick="startRecording()" disabled>🔴 Start Recording</button>
+      <button class="btn btn-stop-rec" id="stopRecBtn"   onclick="stopRecording()">⏹ Stop Recording</button>
+      <hr class="divider">
+      <button class="btn btn-download" id="downloadBtn"  onclick="downloadLatest()" disabled>⬇ Download Latest</button>
+      <button class="btn btn-clear"                      onclick="clearAll()">🗑 Clear All</button>
+    </div>
+  </div>
+
+  <div class="err-msg" id="errMsg"></div>
+  <div class="recordings-section" id="recordingsSection" style="display:none;">
+    <div class="recordings-title">Saved Recordings</div>
+    <div id="recordingsList"></div>
+  </div>
+  <p class="tip">💡 Record your answers for self-review. Works best in Chrome.</p>
+</div>
+
+<script>
+// ── FIX: Grant permissions to the iframe from inside it ─────────────────────
+// Streamlit renders components.html() inside an iframe without allow="camera"
+// We patch this by requesting permissions immediately on page load.
+// Modern browsers respect getUserMedia inside iframes IF the top-level page
+// has granted the permission AND the iframe src is same-origin (localhost).
+// Since both Streamlit and this component are on localhost, this works.
+
+var stream=null,recorder=null,chunks=[],recording=false,timerInt=null,recSecs=0,recordings=[];
+
+function showErr(msg){
+  var e=document.getElementById('errMsg');
+  e.style.display='block';
+  e.innerHTML='⚠️ '+msg;
+}
+function hideErr(){document.getElementById('errMsg').style.display='none';}
+
+function startCamera(){
+  hideErr();
+  var btn=document.getElementById('startCamBtn');
+  btn.disabled=true;btn.innerHTML='⏳ Starting…';
+  showSpinner(true);
+
+  // Check if mediaDevices is available
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+    showSpinner(false);
+    btn.disabled=false;btn.innerHTML='📷 Start Camera';
+    showErr('Camera API not available. Please use Chrome on localhost or enable HTTPS.');
+    return;
+  }
+
+  navigator.mediaDevices.getUserMedia({video:{width:{ideal:640},height:{ideal:480}},audio:true})
+    .then(function(s){
+      stream=s;
+      var vid=document.getElementById('preview');
+      vid.srcObject=stream;
+      vid.onloadedmetadata=function(){
+        vid.play();
+        showSpinner(false);
+        document.getElementById('camPh').style.display='none';
+        btn.style.display='none';
+        document.getElementById('stopCamBtn').style.display='flex';
+        document.getElementById('startRecBtn').disabled=false;
+      };
+    })
+    .catch(function(err){
+      showSpinner(false);
+      btn.disabled=false;btn.innerHTML='📷 Start Camera';
+      var msg='';
+      if(err.name==='NotAllowedError'||err.name==='PermissionDeniedError'){
+        msg='Permission denied. Click the 🔒 icon in the address bar → Allow Camera & Microphone → Refresh.';
+      } else if(err.name==='NotFoundError'||err.name==='DevicesNotFoundError'){
+        msg='No camera found. Make sure a webcam is connected.';
+      } else if(err.name==='NotReadableError'||err.name==='TrackStartError'){
+        msg='Camera is in use by another app (Zoom, Teams, etc.). Close it and try again.';
+      } else if(err.name==='OverconstrainedError'){
+        msg='Camera constraints not met. Trying again with basic settings…';
+        navigator.mediaDevices.getUserMedia({video:true,audio:true})
+          .then(function(s){stream=s;applyStream(s);}).catch(function(e2){showErr(e2.message);});
+        return;
+      } else {
+        msg=err.name+': '+err.message;
+      }
+      showErr(msg);
+    });
+}
+
+function applyStream(s){
+  stream=s;
+  var vid=document.getElementById('preview');
+  vid.srcObject=stream;
+  vid.play();
+  showSpinner(false);
+  document.getElementById('camPh').style.display='none';
+  document.getElementById('startCamBtn').style.display='none';
+  document.getElementById('stopCamBtn').style.display='flex';
+  document.getElementById('startRecBtn').disabled=false;
+}
+
+function stopCamera(){
+  if(recording)stopRecording();
+  setTimeout(function(){
+    if(stream){stream.getTracks().forEach(function(t){t.stop();});stream=null;}
+    var vid=document.getElementById('preview');
+    vid.pause();vid.srcObject=null;
+    document.getElementById('camPh').style.display='flex';
+    document.getElementById('stopCamBtn').style.display='none';
+    var scb=document.getElementById('startCamBtn');
+    scb.style.display='flex';scb.disabled=false;scb.innerHTML='📷 Start Camera';
+    document.getElementById('startRecBtn').disabled=true;
+  },100);
+}
+
+function startRecording(){
+  if(!stream)return;
+  chunks=[];recSecs=0;
+  var opts={};
+  ['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm','video/mp4'].forEach(function(t){
+    if(!opts.mimeType&&MediaRecorder.isTypeSupported(t))opts={mimeType:t};
+  });
+  try{
+    recorder=new MediaRecorder(stream,opts);
+  }catch(e){
+    recorder=new MediaRecorder(stream);
+  }
+  recorder.ondataavailable=function(e){if(e.data&&e.data.size>0)chunks.push(e.data);};
+  recorder.onstop=function(){finaliseRecording();};
+  recorder.start(100);
+  recording=true;
+  document.getElementById('startRecBtn').style.display='none';
+  document.getElementById('stopRecBtn').style.display='flex';
+  document.getElementById('recBadge').style.display='flex';
+  document.getElementById('durOverlay').style.display='block';
+  timerInt=setInterval(function(){
+    recSecs++;
+    var t=fmt(recSecs);
+    document.getElementById('recTime').textContent=t;
+    document.getElementById('durOverlay').textContent=t;
+  },1000);
+}
+
+function stopRecording(){
+  if(!recording)return;
+  recording=false;clearInterval(timerInt);
+  recorder.stop();
+  document.getElementById('stopRecBtn').style.display='none';
+  document.getElementById('startRecBtn').style.display='flex';
+  document.getElementById('recBadge').style.display='none';
+  document.getElementById('durOverlay').style.display='none';
+}
+
+function finaliseRecording(){
+  var blob=new Blob(chunks,{type:'video/webm'});
+  var duration=fmt(recSecs);
+  var ts=new Date().toISOString().slice(0,19).replace('T','_').replace(/:/g,'-');
+  var name='interview_'+ts+'.webm';
+  recordings.unshift({blob:blob,name:name,duration:duration});
+  document.getElementById('downloadBtn').disabled=false;
+  renderRecordings();
+}
+
+function downloadLatest(){if(recordings.length)triggerDL(recordings[0].blob,recordings[0].name);}
+function downloadByIndex(i){if(recordings[i])triggerDL(recordings[i].blob,recordings[i].name);}
+function triggerDL(blob,name){
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');a.href=url;a.download=name;
+  document.body.appendChild(a);a.click();
+  setTimeout(function(){URL.revokeObjectURL(url);a.remove();},1000);
+}
+function clearAll(){recordings=[];document.getElementById('downloadBtn').disabled=true;renderRecordings();}
+function deleteRecording(i){recordings.splice(i,1);if(!recordings.length)document.getElementById('downloadBtn').disabled=true;renderRecordings();}
+
+function renderRecordings(){
+  var sec=document.getElementById('recordingsSection');
+  var list=document.getElementById('recordingsList');
+  list.innerHTML='';
+  if(!recordings.length){sec.style.display='none';return;}
+  sec.style.display='block';
+  recordings.forEach(function(rec,i){
+    var url=URL.createObjectURL(rec.blob);
+    var item=document.createElement('div');item.className='recording-item';
+    item.innerHTML='<video class="recording-thumb" src="'+url+'" preload="metadata" muted></video>'+
+      '<div class="recording-info"><div class="recording-name">'+rec.name+'</div>'+
+      '<div class="recording-dur">'+rec.duration+' | '+fmtSize(rec.blob.size)+'</div></div>'+
+      '<button class="recording-btn dl-btn" onclick="downloadByIndex('+i+')">⬇ Save</button>'+
+      '<button class="recording-btn del-btn" onclick="deleteRecording('+i+')">✕</button>';
+    list.appendChild(item);
+  });
+}
+
+function fmt(s){return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
+function fmtSize(b){return b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB';}
+function showSpinner(show){document.getElementById('spinner').style.display=show?'flex':'none';}
+
+// ── KEY FIX: Patch the parent iframe's allow attribute ──────────────────────
+// When Streamlit renders components.html(), the iframe lacks allow="camera;microphone"
+// We fix it by walking up to the parent document and patching the iframe element.
+(function patchIframePermissions(){
+  try{
+    // Try to find our own iframe in the parent and add allow attribute
+    if(window.parent&&window.parent!==window){
+      var frames=window.parent.document.querySelectorAll('iframe');
+      frames.forEach(function(f){
+        try{
+          if(f.contentWindow===window){
+            f.allow='camera; microphone; display-capture';
+            console.log('[CameraFix] Patched iframe allow attribute');
+          }
+        }catch(e){}
+      });
+    }
+  }catch(e){
+    // Cross-origin restriction — fallback handled by Permissions-Policy meta tag above
+    console.log('[CameraFix] Parent patch blocked (cross-origin), relying on meta policy');
+  }
+})();
+</script>
+</body>
+</html>

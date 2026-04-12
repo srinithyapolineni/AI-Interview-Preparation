@@ -1,0 +1,27 @@
+# AI Interview Preparation Platform - Dependencies
+
+# Web Framework
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+
+# Frontend
+streamlit==1.35.0
+
+# HTTP Client
+requests==2.32.3
+
+# Data
+pydantic==2.7.4
+pandas==2.2.2
+
+# File Handling
+PyPDF2==3.0.1
+python-multipart==0.0.9
+
+# AI / NLP
+openai==1.35.0
+spacy==3.7.5
+nltk==3.8.1
+
+# Note: after installing, run:
+#   python -m spacy download en_core_web_sm
