@@ -34,7 +34,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-API_BASE    = "http://127.0.0.1:8000"
+API_URL = "https://ai-interview-backend-na7l.onrender.com"
 GRADE_COLOR = {"A": "#22c55e", "B": "#3b82f6", "C": "#f59e0b", "D": "#ef4444", "F": "#dc2626"}
 
 # ── Custom CSS ───────────────────────────────────────────────────────────────
